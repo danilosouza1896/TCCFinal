@@ -2,7 +2,7 @@ import os
 from xml.etree import ElementTree
 
 # Get .txt files
-files = os.listdir('testdataset')
+files = os.listdir('test')
 print(len(files))
 car = 0
 motorcycle = 0
@@ -10,7 +10,7 @@ pedestrian = 0
 lines = []
 for f_name in files:
     if f_name.endswith('.xml'):
-        document = ElementTree.parse('testdataset/{}'.format(f_name))
+        document = ElementTree.parse('test/{}'.format(f_name))
         root = document.getroot()
         for object in root.findall("object"):
             lines.append("{}, {}, {}, {}, {}, {}".format(
