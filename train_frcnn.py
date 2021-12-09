@@ -20,6 +20,17 @@ import keras_frcnn.roi_helpers as roi_helpers
 from keras.utils import generic_utils
 from keras.callbacks import TensorBoard
 
+configuration = tf.compat.v1.ConfigProto()
+configuration.gpu_options.allow_growth = True
+session = tf.compat.v1.Session(config=configuration)
+
+
+def write_log_txt(epoch, loss_rpn_cls, loss_rpn_regr, loss_class_cls, loss_class_regr, class_acc, curr_loss):
+    file = open("txt_log/log.txt", "a")
+    file.write("epoch: {} loss_rpn_cls: {} loss_class_cls: {} loss_class_regr: {} class_acc: {} curr_loss {}".format(epoch, loss_rpn_cls, loss_class_cls, loss_class_regr, class_acc, curr_loss))
+    file.write('\n')
+    file.close()
+
 
 # tensorboard 로그 작성 함수
 def write_log(callback, names, logs, batch_no):
@@ -315,6 +326,7 @@ for epoch_num in range(num_epochs):
                 print('Elapsed time: {}'.format(time.time() - start_time))
 
             curr_loss = loss_rpn_cls + loss_rpn_regr + loss_class_cls + loss_class_regr
+            
             iter_num = 0
             start_time = time.time()
 
@@ -330,6 +342,8 @@ for epoch_num in range(num_epochs):
                     print('Total loss decreased from {} to {}, saving weights'.format(best_loss,curr_loss))
                 best_loss = curr_loss
                 model_all.save_weights(C.model_path)
+
+            write_log_txt(epoch_num, loss_rpn_cls, loss_rpn_regr, loss_class_cls, loss_class_regr, class_acc, curr_loss)
 
             break
 

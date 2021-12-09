@@ -13,7 +13,8 @@ from keras.layers import Input
 from keras.models import Model
 from keras_frcnn import roi_helpers
 
-from IoU import IoU, load_expected
+from core import *
+
 
 configuration = tf.compat.v1.ConfigProto()
 configuration.gpu_options.allow_growth = True
@@ -27,7 +28,8 @@ sys.setrecursionlimit(40000)
 
 parser = OptionParser()
 
-parser.add_option("-p", "--path", dest="test_path", help="Path to test data.")
+#parser.add_option("-p", "--path", dest="test_path", help="Path to test data.")
+parser.add_option("-c", "--camera", dest="camera_path", help="Camera number")
 parser.add_option("-n", "--num_rois", dest="num_rois",
                   help="Number of ROIs per iteration. Higher means more memory use.", default=32)
 parser.add_option("--config_filename", dest="config_filename", help="Location to read the metadata related to the training (generated when training).",
@@ -36,8 +38,8 @@ parser.add_option("--network", dest="network", help="Base network to use. Suppor
 
 (options, args) = parser.parse_args()
 
-if not options.test_path:   # if filename is not given
-    parser.error('Error: path to test data must be specified. Pass --path to command line')
+#if not options.test_path:   # if filename is not given
+#    parser.error('Error: path to test data must be specified. Pass --path to command line')
 
 
 config_output_filename = options.config_filename
@@ -59,7 +61,10 @@ C.use_horizontal_flips = False
 C.use_vertical_flips = False
 C.rot_90 = False
 
-img_path = options.test_path
+camera_path = "cameras/{}".format(options.camera_path)
+img_path = "{}/images".format(camera_path)
+park_area_info_path = "{}/park_area_info".format(camera_path)
+results_path = "{}/results".format(camera_path)
 
 def format_img_size(img, C):
     """ formats the image size based on config """
@@ -158,15 +163,9 @@ model_classifier.compile(optimizer='sgd', loss='mse')
 
 all_imgs = []
 
-iou_scores = []
-
 classes = {}
 
-bbox_threshold = 0.9
-
-iou_threshold = 0.5
-
-total_detections = 0
+bbox_threshold = 0.8
 
 visualise = True
 
@@ -178,6 +177,8 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
     filepath = os.path.join(img_path,img_name)
 
     img = cv2.imread(filepath)
+    shapes = np.zeros_like(img, np.uint8)
+
 
     X, ratio = format_img(img, C)
 
@@ -258,7 +259,7 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 
             bounding_boxes_polygons.append([real_x1, real_y1, width, height])
 
-            cv2.rectangle(img,(real_x1, real_y1), (real_x2, real_y2), (int(class_to_color[key][0]), int(class_to_color[key][1]), int(class_to_color[key][2])),2)
+            cv2.rectangle(shapes,(real_x1, real_y1), (real_x2, real_y2), (int(class_to_color[key][0]), int(class_to_color[key][1]), int(class_to_color[key][2])),2)
 
             textLabel = '{}: {}'.format(key,int(100*new_probs[jk]))
             all_dets.append((key,100*new_probs[jk]))
@@ -266,42 +267,23 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
             (retval,baseLine) = cv2.getTextSize(textLabel,cv2.FONT_HERSHEY_COMPLEX,1,1)
             textOrg = (real_x1, real_y1-0)
 
-            total_detections = total_detections + 1
+            cv2.rectangle(shapes, (textOrg[0] - 5, textOrg[1]+baseLine - 5), (textOrg[0]+retval[0] + 5, textOrg[1]-retval[1] - 5), (0, 0, 0), 2)
+            cv2.rectangle(shapes, (textOrg[0] - 5,textOrg[1]+baseLine - 5), (textOrg[0]+retval[0] + 5, textOrg[1]-retval[1] - 5), (255, 255, 255), -1)
+            cv2.putText(shapes, textLabel, textOrg, cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 0), 1)
 
-            cv2.rectangle(img, (textOrg[0] - 5, textOrg[1]+baseLine - 5), (textOrg[0]+retval[0] + 5, textOrg[1]-retval[1] - 5), (0, 0, 0), 2)
-            cv2.rectangle(img, (textOrg[0] - 5,textOrg[1]+baseLine - 5), (textOrg[0]+retval[0] + 5, textOrg[1]-retval[1] - 5), (255, 255, 255), -1)
-            cv2.putText(img, textLabel, textOrg, cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 0), 1)
+    polygons_points = load_polygons(park_area_info_path)
+    draw_polygon(image=shapes, polygons=polygons_points)
+    #intersections = detect_intersection(polygon_points, bounding_boxes)
+    intersections = free_spots(polygons_points, bounding_boxes_polygons)
+    draw_free(intersections, shapes)
+    verify_free_spots(intersections)
 
-    expecteds = load_expected(img_name[:-4])
-    for expected in expecteds:
-        iou_scores.append(IoU(expected, bounding_boxes_polygons))
-        
     print('Elapsed time = {}'.format(time.time() - st))
     print(all_dets)
     #cv2.imshow('img', img)
     #cv2.waitKey(0)
-    cv2.imwrite('./results_imgs/{}.png'.format(idx),img)
-
-expected = len(iou_scores)
-true_positive = 0
-false_positive = 0
-sum_score=0
-for iou_score in iou_scores:
-    if(iou_score>iou_threshold):
-        true_positive=true_positive+1
-    sum_score=sum_score+iou_score
-
-false_positive = total_detections-true_positive
-false_negative = expected - true_positive
-
-precision = true_positive/(true_positive+false_positive)
-recall = true_positive/(true_positive + false_negative)
-average_iou = sum_score/expected
-
-print("Average IoU:{}".format(average_iou))
-print("Total Detections: {}".format(total_detections))
-print("True Positive:{}".format(true_positive))
-print("False Positive:{}".format(false_positive))
-print("False Negative:{}".format(false_negative))
-print("Recall:{}".format(recall))
-print("Precision:{}".format(precision))
+    out = img.copy()
+    alpha=0.7
+    mask=shapes.astype(bool)
+    out[mask] = cv2.addWeighted(img, alpha, shapes, 1 - alpha, 0)[mask]
+    cv2.imwrite('{}/{}.png'.format(results_path, idx),out)

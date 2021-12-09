@@ -1,0 +1,38 @@
+<annotation>
+	<folder>xvxcvxc</folder>
+	<filename>0012.jpg</filename>
+	<path>/home/danilo/Área de Trabalho/xvxcvxc/0012.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>1366</width>
+		<height>768</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>car</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>734</xmin>
+			<ymin>448</ymin>
+			<xmax>932</xmax>
+			<ymax>552</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>car</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>403</xmin>
+			<ymin>363</ymin>
+			<xmax>515</xmax>
+			<ymax>422</ymax>
+		</bndbox>
+	</object>
+</annotation>
